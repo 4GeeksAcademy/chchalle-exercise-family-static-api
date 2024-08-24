@@ -78,7 +78,7 @@ def delete_member_app(member_id):
         return "member_id not valid", 400
     
     jackson_family.delete_member(member_id)
-    return 200
+    return "deleted", 200
 
 @app.route('/member/<int:member_id>', methods=['GET'])
 def get_member_app(member_id):
@@ -86,8 +86,8 @@ def get_member_app(member_id):
         return "member_id not valid",400
     if type(member_id) is not int or member_id<0:
         return "member_id not valid", 400
-    jackson_family.get_member(member_id)
-    return 200
+    familyMember=jackson_family.get_member(member_id)
+    return jsonify(familyMember), 200
 
 # this only runs if `$ python src/app.py` is executed
 if __name__ == '__main__':
