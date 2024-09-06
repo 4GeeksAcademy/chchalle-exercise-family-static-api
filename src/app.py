@@ -1,95 +1,84 @@
-"""
-This module takes care of starting the API Server, Loading the DB and Adding the endpoints
-"""
 import os
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from datastructures import FamilyStructure
-#from models import Person
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 CORS(app)
 
-# create the jackson family object
 jackson_family = FamilyStructure("Jackson")
 jackson_family.add_member({
     "first_name": "John",
     "age": 33,
-    "luck_numbers": [7,13,22]
+    "lucky_numbers": [7,13,22]
 })
 jackson_family.add_member({
     "first_name": "Jane",
     "age": 35,
-    "luck_numbers": [10,14,3]
+    "lucky_numbers": [10,14,3]
 })
 jackson_family.add_member({
     "first_name": "Jimmy",
     "age": 5,
-    "luck_numbers": [1]
+    "lucky_numbers": [1]
 })
 
-# Handle/serialize errors like a JSON object
 @app.errorhandler(APIException)
 def handle_invalid_usage(error):
     return jsonify(error.to_dict()), error.status_code
 
-# generate sitemap with all your endpoints
 @app.route('/')
 def sitemap():
     return generate_sitemap(app)
 
 @app.route('/members', methods=['GET'])
-def get_all_familiy_members():
-
-    # this is how you can use the Family datastructure by calling its methods
+def get_all_family_members():
     members = jackson_family.get_all_members()
-    response_body = members    
-
-
-    return jsonify(response_body), 200
+    return jsonify(members), 200
 
 @app.route('/member', methods=['POST'])
 def add_member_app():
-    body=request.get_json()
+    body = request.get_json()
 
-    if body is None:
-        return "the request body is null", 400
+    if not body:
+        return jsonify({"message": "The request body is null"}), 400
     if 'first_name' not in body:
-        return 'You need to specify the first_name', 400
+        return jsonify({"message": "You need to specify the first_name"}), 400
     if 'age' not in body:
-        return 'You need to specify the age', 400
+        return jsonify({"message": "You need to specify the age"}), 400
     if 'lucky_numbers' not in body:
-        return 'You need to specify the lucky_number', 400
+        return jsonify({"message": "You need to specify the lucky_numbers"}), 400
 
-    added_member=jackson_family.add_member({
-        "first_name" : body["first_name"],
-        "age": body ["age"],
-        "lucky_numbers": body["lucky_numbers"]
-    })
-    return jsonify(added_member),200
+    added_member = jackson_family.add_member(body)
+    
+    return jsonify(added_member), 200
 
 @app.route('/member/<int:member_id>', methods=['DELETE'])
 def delete_member_app(member_id):
-    if member_id is None:
-        return "member_id not valid",400
-    if type(member_id) is not int or member_id<0:
-        return "member_id not valid", 400
-    
-    jackson_family.delete_member(member_id)
-    return "deleted", 200
+    if member_id < 0:
+        return jsonify({"message": "Invalid member_id"}), 400
+
+    success = jackson_family.delete_member(member_id)
+    if not success:
+        return jsonify({"message": "Member not found"}), 404
+
+    return jsonify({"done": True}), 200
 
 @app.route('/member/<int:member_id>', methods=['GET'])
 def get_member_app(member_id):
-    if member_id is None:
-        return "member_id not valid",400
-    if type(member_id) is not int or member_id<0:
-        return "member_id not valid", 400
-    familyMember=jackson_family.get_member(member_id)
-    return jsonify(familyMember), 200
+    family_member = jackson_family.get_member(member_id)
+    if family_member is None:
+        return jsonify({"message": "Member not found"}), 404
+    
+    return jsonify({
+        "first_name": family_member["first_name"],  
+        "id": family_member["id"],            
+        "age": family_member["age"],
+        "lucky_numbers": family_member["lucky_numbers"]
+    }), 200
 
-# this only runs if `$ python src/app.py` is executed
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3000))
     app.run(host='0.0.0.0', port=PORT, debug=True)
